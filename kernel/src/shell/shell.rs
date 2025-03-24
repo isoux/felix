@@ -8,6 +8,8 @@ use crate::memory::paging::PAGING;
 use crate::memory::paging::TABLES;
 
 use core::arch::asm;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
 const APP_TARGET: u32 = 0x00a0_0000;
 const APP_SIZE: u32 = 0x0001_0000;
@@ -21,13 +23,13 @@ run <file> - loads file as task and adds it to the task list
 ps - lists running tasks
 rt <id> - removes specified task";
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut SHELL: Shell = Shell {
-    buffer: [0 as char; 256],
-    arg: [0 as char; 11],
-    cursor: 0,
-};
+lazy_static! {
+	pub static ref SHELL: Mutex<Shell> = Mutex::new(Shell {
+    	buffer: [0 as char; 256],
+    	arg: [0 as char; 11],
+    	cursor: 0,
+	});
+}
 
 const PROMPT: &str = "felix> ";
 
@@ -43,12 +45,10 @@ impl Shell {
         self.buffer = [0 as char; 256];
         self.cursor = 0;
 
-        unsafe {
-            PRINTER.set_colors(0xc, 0);
-            libfelix::print!("{}", PROMPT);
+        PRINTER.lock().set_colors(0xc, 0);
+        libfelix::print!("{}", PROMPT);
 
-            PRINTER.reset_colors();
-        }
+        PRINTER.lock().reset_colors();
     }
 
     //adds new char to shell buffer
@@ -65,9 +65,7 @@ impl Shell {
             self.buffer[self.cursor] = 0 as char;
             self.cursor -= 1;
 
-            unsafe {
-                PRINTER.delete();
-            }
+            PRINTER.lock().delete();
         }
     }
 
@@ -78,9 +76,7 @@ impl Shell {
             asm!("out dx, al", in("dx") 0xe9 as u16, in("al") '\n' as u8);
         }
 
-        unsafe {
-            PRINTER.new_line();
-        }
+        PRINTER.lock().new_line();
 
         self.interpret();
         self.init();
@@ -97,13 +93,12 @@ impl Shell {
 
             //list root directory
             _b if self.is_command("ls") => unsafe {
-                FAT.acquire().list_entries();
-                FAT.free();
+                FAT.lock().list_entries();
             },
 
             //list running tasks
             _b if self.is_command("ps") => unsafe {
-                TASK_MANAGER.list_tasks();
+                TASK_MANAGER.lock().list_tasks();
             },
 
             //remove runing task
@@ -116,7 +111,7 @@ impl Shell {
                 //convert first char of arg to id
                 let id = ((b[3] as u8) - 0x30) as usize;
 
-                TASK_MANAGER.remove_task(id);
+                TASK_MANAGER.lock().remove_task(id);
                 //TASK_MANAGER.remove_current_task();
             },
 
@@ -136,13 +131,13 @@ impl Shell {
 
                 match a {
                     'a' => {
-                        TASK_MANAGER.add_dummy_task_a();
+                        TASK_MANAGER.lock().add_dummy_task_a();
                     }
                     'b' => {
-                        TASK_MANAGER.add_dummy_task_b();
+                        TASK_MANAGER.lock().add_dummy_task_b();
                     }
                     'c' => {
-                        TASK_MANAGER.add_dummy_task_c();
+                        TASK_MANAGER.lock().add_dummy_task_c();
                     }
                     _ => {
                         libfelix::println!("Specify test a, b, or c!");
@@ -170,7 +165,7 @@ impl Shell {
         for i in 4..15 {
             self.arg[i - 4] = b[i];
         }
-        let fat = FAT.acquire();
+        let fat = FAT.lock();
 
         let entry = fat.search_file(&self.arg);
 
@@ -186,7 +181,6 @@ impl Shell {
         } else {
             libfelix::println!("File not found!");
         }
-        FAT.free();
     }
 
     //loads an executable as a task
@@ -194,16 +188,16 @@ impl Shell {
         for i in 4..15 {
             self.arg[i - 4] = b[i];
         }
-        let fat = FAT.acquire();
+        let fat = FAT.lock();
 
         let entry = fat.search_file(&self.arg);
         if entry.name[0] != 0 {
-            let slot = TASK_MANAGER.get_free_slot();
+            let slot = TASK_MANAGER.lock().get_free_slot();
             let target = APP_TARGET + (slot as u32 * APP_SIZE);
 
             //map table 8 (0x02000000) to the address where the executable is loaded
-            TABLES[8].set(target);
-            PAGING.set_table(8, &TABLES[8]);
+            TABLES.lock()[8].set(target);
+            PAGING.lock().set_table(8, &TABLES.lock()[8]);
 
             fat.read_file_to_target(&entry, target as *mut u32);
 
@@ -211,7 +205,7 @@ impl Shell {
                 let signature = *(target as *mut u32);
 
                 if signature == APP_SIGNATURE {
-                    TASK_MANAGER.add_task((target + 4) as u32);
+                    TASK_MANAGER.lock().add_task((target + 4) as u32);
                 } else {
                     libfelix::println!("File is not a valid executable!");
                 }
@@ -219,7 +213,6 @@ impl Shell {
         } else {
             libfelix::println!("Program not found!");
         }
-        FAT.free();
     }
 
     pub fn is_command(&self, command: &str) -> bool {

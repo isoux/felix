@@ -1,9 +1,13 @@
 use core::arch::asm;
 use core::fmt;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
 pub struct Printer {}
 
-pub static mut PRINTER: Printer = Printer {};
+lazy_static! {
+	pub static ref PRINTER: Mutex<Printer> = Mutex::new(Printer {});
+}
 
 //core lib needs to know how to print a string to implement its print formatted func
 impl fmt::Write for Printer {
@@ -35,7 +39,7 @@ macro_rules! print {
 macro_rules! println {
     () => {
         unsafe {
-            $crate::print::PRINTER.prints("\n");
+            $crate::print::PRINTER.lock().prints("\n");
         }
     };
 
@@ -43,14 +47,12 @@ macro_rules! println {
     ($($arg:tt)*) => {
         $crate::print!("{}", format_args!($($arg)*));
         unsafe {
-            $crate::print::PRINTER.prints("\n");
+            $crate::print::PRINTER.lock().prints("\n");
         }
     };
 }
 
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    unsafe {
-        PRINTER.write_fmt(args).unwrap();
-    }
+    PRINTER.lock().write_fmt(args).unwrap();
 }

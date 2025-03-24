@@ -1,11 +1,17 @@
 use core::arch::asm;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
-pub static mut PAGING: PageDirectory = PageDirectory {
-    //0b010 (supervisor, write, not present)
-    entries: [0x00000002; 1024],
-};
+lazy_static! {
+	pub static ref PAGING: Mutex<PageDirectory> = Mutex::new(PageDirectory {
+    	//0b010 (supervisor, write, not present)
+    	entries: [0x00000002; 1024],
+	});
+}
 
-pub static mut TABLES: [PageTable; 16] = [NULL_TABLE; 16];
+lazy_static! {
+	pub static ref TABLES: Mutex<[PageTable; 16]> = Mutex::new([NULL_TABLE; 16]);
+}
 
 pub static NULL_TABLE: PageTable = PageTable { entries: [0; 1024] };
 
@@ -13,6 +19,7 @@ pub static NULL_TABLE: PageTable = PageTable { entries: [0; 1024] };
 pub struct PageDirectory {
     pub entries: [u32; 1024],
 }
+
 
 impl PageDirectory {
     pub fn set_table(&mut self, index: usize, table: &PageTable) {
@@ -32,12 +39,13 @@ impl PageDirectory {
     }
 
     //indentity page first 32MiB
-    pub fn identity(&mut self) {
-        unsafe {
-            for i in 0..8 {
-                TABLES[i].set((0x0040_0000 * i) as u32);
-                PAGING.set_table(i, &TABLES[i]);
-            }
+    pub fn identity(page_dir: &Mutex<PageDirectory>) {
+
+		let mut tables = TABLES.lock();
+		let mut paging = page_dir.lock();
+        for i in 0..8 {
+			tables[i].set((0x0040_0000 * i) as u32);
+			paging.set_table(i, &tables[i]);
         }
     }
 }

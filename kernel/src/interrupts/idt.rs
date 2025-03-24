@@ -3,12 +3,14 @@
 use crate::interrupts::exceptions;
 use core::arch::asm;
 use core::mem::size_of;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut IDT: InterruptDescriptorTable = InterruptDescriptorTable {
-    entries: [IDT_ENTRY; IDT_ENTRIES],
-};
+lazy_static! {
+	pub static ref IDT: Mutex<InterruptDescriptorTable> = Mutex::new(InterruptDescriptorTable {
+    	entries: [IDT_ENTRY; IDT_ENTRIES],
+	});
+}
 
 const IDT_ENTRIES: usize = 256;
 

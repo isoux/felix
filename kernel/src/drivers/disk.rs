@@ -2,10 +2,12 @@
 //Driver for ATA disk supporting PIO MODE
 
 use core::arch::asm;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut DISK: Disk = Disk { enabled: false };
+lazy_static! {
+	pub static ref DISK: Mutex<Disk> = Mutex::new(Disk { enabled: false });
+}
 
 //controller registers ports
 const DATA_REGISTER: u16 = 0x1f0;

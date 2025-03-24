@@ -1,5 +1,7 @@
 //TASK MANAGER
 use core::arch::asm;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
 const STACK_SIZE: usize = 4096;
 const MAX_TASKS: i8 = 32;
@@ -84,11 +86,13 @@ pub struct TaskManager {
 }
 
 //init null task manager
-pub static mut TASK_MANAGER: TaskManager = TaskManager {
-    tasks: [NULL_TASK; MAX_TASKS as usize],
-    task_count: 0,
-    current_task: -1,
-};
+lazy_static! {
+	pub static ref TASK_MANAGER: Mutex<TaskManager> = Mutex::new(TaskManager {
+    	tasks: [NULL_TASK; MAX_TASKS as usize],
+    	task_count: 0,
+    	current_task: -1,
+	});
+}
 
 impl TaskManager {
     pub fn init(&mut self) {

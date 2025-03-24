@@ -2,14 +2,17 @@
 
 use crate::drivers::disk::DISK;
 use core::mem;
-use libfelix::mutex::Mutex;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
-pub static mut FAT: Mutex<FatDriver> = Mutex::new(FatDriver {
-    header: NULL_HEADER,
-    entries: [NULL_ENTRY; ENTRY_COUNT],
-    table: [0; FAT_SIZE],
-    buffer: [0; 2048],
-});
+lazy_static! {
+	pub static ref FAT: Mutex<FatDriver> = Mutex::new(FatDriver {
+    	header: NULL_HEADER,
+    	entries: [NULL_ENTRY; ENTRY_COUNT],
+    	table: [0; FAT_SIZE],
+    	buffer: [0; 2048],
+	});
+}
 
 const ENTRY_COUNT: usize = 512;
 const FAT_START: u16 = 36864;
@@ -123,9 +126,7 @@ impl FatDriver {
         let lba: u64 = FAT_START as u64;
         let sectors: u16 = 1;
 
-        unsafe {
-            DISK.read(target, lba, sectors);
-        }
+        DISK.lock().read(target, lba, sectors);
     }
 
     //get entries array address and overwrite that mem location with data from root directory
@@ -143,9 +144,7 @@ impl FatDriver {
         let size: u16 = entry_size * self.header.dir_entries_count;
         let sectors: u16 = size / self.header.bytes_per_sector;
 
-        unsafe {
-            DISK.read(target, lba, sectors);
-        }
+		DISK.lock().read(target, lba, sectors);
     }
 
     //list each entry in root direcotry
@@ -182,9 +181,7 @@ impl FatDriver {
         //let sectors: u16 = self.header.sectors_per_fat;
         let sectors: u16 = 1;
 
-        unsafe {
-            DISK.read(target, lba, sectors);
-        }
+		DISK.lock().read(target, lba, sectors);
     }
 
     //read first cluster of file to buffer
@@ -200,9 +197,7 @@ impl FatDriver {
 
         let sectors: u16 = self.header.sectors_per_cluster as u16;
 
-        unsafe {
-            DISK.read(target, lba, sectors);
-        }
+		DISK.lock().read(target, lba, sectors);
     }
 
     //read file reading one cluster at time
@@ -222,9 +217,7 @@ impl FatDriver {
 
             let sectors: u16 = self.header.sectors_per_cluster as u16;
 
-            unsafe {
-                DISK.read(current_target, lba, sectors);
-            }
+            DISK.lock().read(current_target, lba, sectors);
 
             next_cluster = self.table[next_cluster as usize];
 

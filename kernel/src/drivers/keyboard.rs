@@ -3,11 +3,13 @@
 
 use crate::drivers::pic::PICS;
 use crate::shell::shell::SHELL;
-use core::arch::asm;
+use core::arch::{asm, naked_asm};
+use lazy_static::lazy_static;
+use spin::Mutex;
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut KEYBOARD: Keyboard = Keyboard { lshift: false };
+lazy_static! {
+	pub static ref KEYBOARD: Mutex<Keyboard> = Mutex::new(Keyboard { lshift: false });
+}
 
 pub const KEYBOARD_INT: u8 = 33;
 pub const KEYBAORD_CONTROLLER: u8 = 0x60;
@@ -22,7 +24,7 @@ pub struct Keyboard {
 pub extern "C" fn keyboard() {
     unsafe {
         //push charset to keyboard handler before calling
-        asm!(
+        naked_asm!(
             "push 0x6d6e6276",
             "push 0x63787a6c",
             "push 0x6b6a6867",
@@ -34,14 +36,13 @@ pub extern "C" fn keyboard() {
             "push 0x34333231",
             "call keyboard_handler",
             "add esp, 36",
-            "iretd",
-            options(noreturn)
+            "iretd"
         );
     }
 }
 
 #[allow(improper_ctypes_definitions)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn keyboard_handler(charset: [u8; CHAR_COUNT]) {
     //read scancode from keyboard controller
     let scancode: u8;
@@ -52,43 +53,40 @@ pub extern "C" fn keyboard_handler(charset: [u8; CHAR_COUNT]) {
     //notify pics end of interrupt
     PICS.end_interrupt(KEYBOARD_INT);
 
-    unsafe {
-        match scancode {
-            //press left shift
-            0x2a => {
-                KEYBOARD.lshift = true;
-                return;
-            }
-
-            //release left shift
-            0xaa => {
-                KEYBOARD.lshift = false;
-                return;
-            }
-
-            //backspace
-            0x0e => {
-                SHELL.backspace();
-                return;
-            }
-
-            //enter
-            0x1c => {
-                SHELL.enter();
-                return;
-            }
-
-            _ => {}
+   
+    match scancode {
+        //press left shift
+        0x2a => {
+            KEYBOARD.lock().lshift = true;
+            return;
         }
-    }
+
+        //release left shift
+        0xaa => {
+            KEYBOARD.lock().lshift = false;
+            return;
+        }
+
+        //backspace
+        0x0e => {
+            SHELL.lock().backspace();
+            return;
+        }
+
+        //enter
+        0x1c => {
+            SHELL.lock().enter();
+            return;
+        }
+
+        _ => {}
+        }
 
     //print char
     let key = scancode_to_char(scancode, charset);
 
     if key != '\0' {
-        unsafe {
-            SHELL.add(key);
-        }
+		SHELL.lock().add(key);
     }
 }
 
@@ -109,10 +107,8 @@ fn scancode_to_char(scancode: u8, charset: [u8; CHAR_COUNT]) -> char {
     if index < charset.len() {
         key = charset[index] as char;
 
-        unsafe {
-            if KEYBOARD.lshift {
-                key = key.to_ascii_uppercase();
-            }
+        if KEYBOARD.lock().lshift {
+            key = key.to_ascii_uppercase();
         }
     }
 

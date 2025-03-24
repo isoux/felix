@@ -4,10 +4,12 @@
 
 use core::arch::asm;
 use core::fmt;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut PRINTER: Printer = Printer {};
+lazy_static! {
+  pub static ref PRINTER: Mutex<Printer> = Mutex::new(Printer {});
+}
 
 pub struct Printer {}
 
@@ -79,16 +81,12 @@ macro_rules! println {
 
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    unsafe {
-        PRINTER.write_fmt(args).unwrap();
-    }
+	PRINTER.lock().write_fmt(args).unwrap();
 }
 
 #[allow(dead_code)]
 pub fn _clear() {
-    unsafe {
-        PRINTER.clear();
-    }
+    PRINTER.lock().clear();
 }
 
 //bios interrupt to print to the screen

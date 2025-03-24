@@ -4,10 +4,15 @@
 
 use core::arch::asm;
 use core::mem;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut DISK: Disk = Disk { lba: 0, buffer: 0 };
+lazy_static! {
+	pub static ref DISK: Mutex<Disk> = Mutex::new(Disk { 
+		lba: 0, 
+		buffer: 0
+	});
+}
 
 const SECTOR_SIZE: u64 = 512;
 
