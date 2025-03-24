@@ -13,7 +13,6 @@ use core::panic::PanicInfo;
 use disk::DISK;
 use gdt::GDT;
 
-//const VERSION: &str = env!("CARGO_PKG_VERSION");
 const KERNEL_LBA: u64 = 4096; //kernel location logical block address
 
 const KERNEL_SIZE: u16 = 2048; //kernel size in sectors
@@ -29,8 +28,8 @@ fn panic(info: &PanicInfo) -> ! {
 }
 
 //bootloader entry point
-#[no_mangle]
-#[link_section = ".start"]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".start")]
 pub extern "C" fn _start() -> ! {
     //uncomment to enable splashscreen
     //clear!();
@@ -45,10 +44,8 @@ pub extern "C" fn _start() -> ! {
     //load kernel
     print!("[!] Loading kernel");
 
-    unsafe {
-        DISK.init(KERNEL_LBA, KERNEL_BUFFER);
-        DISK.read_sectors(KERNEL_SIZE, KERNEL_TARGET);
-    }
+    DISK.lock().init(KERNEL_LBA, KERNEL_BUFFER);
+    DISK.lock().read_sectors(KERNEL_SIZE, KERNEL_TARGET);
 
     println!("[!] Kernel loaded to memory.");
 
@@ -65,7 +62,7 @@ pub extern "C" fn _start() -> ! {
     loop {}
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn fail() -> ! {
     println!("[!] Read fail!");
 
