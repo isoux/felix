@@ -51,6 +51,6 @@ macro_rules! println {
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
     unsafe {
-        PRINTER.write_fmt(args).unwrap();
+        (*(&raw mut PRINTER)).write_fmt(args).unwrap();
     }
 }

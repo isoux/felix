@@ -1,8 +1,9 @@
 //FAT16 FILESYSTEM IMPLEMENTATION
 
 use crate::drivers::disk::DISK;
+use crate::libfelix::mutex::Mutex;
 use core::mem;
-use libfelix::mutex::Mutex;
+
 
 pub static mut FAT: Mutex<FatDriver> = Mutex::new(FatDriver {
     header: NULL_HEADER,
@@ -124,7 +125,8 @@ impl FatDriver {
         let sectors: u16 = 1;
 
         unsafe {
-            DISK.read(target, lba, sectors);
+			(*(&raw mut DISK)).acquire_mut().read(target, lba, sectors);
+			(*(&raw mut DISK)).free();
         }
     }
 
@@ -144,7 +146,8 @@ impl FatDriver {
         let sectors: u16 = size / self.header.bytes_per_sector;
 
         unsafe {
-            DISK.read(target, lba, sectors);
+			(*(&raw mut DISK)).acquire_mut().read(target, lba, sectors);
+			(*(&raw mut DISK)).free();
         }
     }
 
@@ -183,7 +186,8 @@ impl FatDriver {
         let sectors: u16 = 1;
 
         unsafe {
-            DISK.read(target, lba, sectors);
+			(*(&raw mut DISK)).acquire_mut().read(target, lba, sectors);
+			(*(&raw mut DISK)).free();
         }
     }
 
@@ -201,7 +205,8 @@ impl FatDriver {
         let sectors: u16 = self.header.sectors_per_cluster as u16;
 
         unsafe {
-            DISK.read(target, lba, sectors);
+			(*(&raw mut DISK)).acquire().read(target, lba, sectors);
+			(*(&raw mut DISK)).free();
         }
     }
 
@@ -223,7 +228,8 @@ impl FatDriver {
             let sectors: u16 = self.header.sectors_per_cluster as u16;
 
             unsafe {
-                DISK.read(current_target, lba, sectors);
+				(*(&raw mut DISK)).acquire().read(current_target, lba, sectors);
+				(*(&raw mut DISK)).free();
             }
 
             next_cluster = self.table[next_cluster as usize];

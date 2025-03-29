@@ -1,14 +1,13 @@
 //INTERRUPT DESCRIPTOR TABLE
 
 use crate::interrupts::exceptions;
+use crate::libfelix::mutex::Mutex;
 use core::arch::asm;
 use core::mem::size_of;
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut IDT: InterruptDescriptorTable = InterruptDescriptorTable {
+pub static mut IDT: Mutex<InterruptDescriptorTable> = Mutex::new(InterruptDescriptorTable {
     entries: [IDT_ENTRY; IDT_ENTRIES],
-};
+});
 
 const IDT_ENTRIES: usize = 256;
 

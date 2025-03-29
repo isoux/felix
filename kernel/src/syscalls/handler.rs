@@ -2,8 +2,8 @@
 
 use crate::drivers::pic::PICS;
 use crate::multitasking::task::TASK_MANAGER;
-use crate::syscalls::print;
-use core::arch::asm;
+use crate::syscalls::print::{PRINTER, Printer};
+use core::arch::{naked_asm};
 
 use core::slice;
 use core::str;
@@ -14,20 +14,19 @@ pub const SYSCALL_INT: u8 = 0x80;
 #[naked]
 pub extern "C" fn syscall() {
     unsafe {
-        asm!(
+        naked_asm!(
             "push eax",
             "push ebx",
             "push ecx",
             "call syscall_handler",
             "add esp, 12",
             "iretd",
-            options(noreturn)
         );
     }
 }
 
 //handle syscalls, get syscall number from eax register
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn syscall_handler(ecx: u32, ebx: u32, eax: u32) {
     unsafe {
         match eax {
@@ -37,13 +36,14 @@ pub extern "C" fn syscall_handler(ecx: u32, ebx: u32, eax: u32) {
                     let slice = slice::from_raw_parts(ebx as *const u8, ecx as usize);
                     str::from_utf8(slice)
                 };
-
-                print::PRINTER.prints(s.unwrap());
+				let mutex_printer: &mut Printer = (*(&raw mut PRINTER)).acquire_mut();
+                mutex_printer.prints(s.unwrap());
+				(*(&raw mut PRINTER)).free();
             }
 
             //SYSCALL 1, remove current active task
             1 => {
-                TASK_MANAGER.remove_current_task();
+                (*(&raw mut TASK_MANAGER)).remove_current_task();
             }
 
             _ => {}

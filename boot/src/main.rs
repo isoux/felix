@@ -14,11 +14,11 @@ const BOOTLOADER_SIZE: u16 = 64; //bootloader size in sectors
 //set data segments to zero and setup stack
 global_asm!(include_str!("boot.asm"));
 
-extern "C" {
+unsafe extern "C" {
     static _bootloader_start: u16;
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn main() -> ! {
     clear();
 
@@ -56,7 +56,7 @@ fn print(message: &str) {
             "2:",
             "lodsb", //load a byte (next character) from si to al
             "or al, al", //bitwise or on al, if al is null set zf to true
-            "jz 1f", //if zf is true (end of string) jump to end
+            "jz 3f", //if zf is true (end of string) jump to end
 
             "mov ah, 0x0e",
             "mov bh, 0",
@@ -64,7 +64,7 @@ fn print(message: &str) {
             "int 0x10", //tell the bios to write content of al to screen
 
             "jmp 2b", //start again
-            "1:",
+            "3:",
             in(reg) message.as_ptr());
     }
 }
@@ -76,7 +76,7 @@ fn jump(address: *const u16) {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn fail() -> ! {
     print("[!] Failed loading bootloader!");
 

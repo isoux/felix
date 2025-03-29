@@ -2,15 +2,14 @@
 //Manages text output by directly writing to VGA video memory
 
 use core::arch::asm;
+use libfelix::mutex::Mutex;
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut PRINTER: Printer = Printer {
+pub static mut PRINTER: Mutex<Printer> = Mutex::new(Printer {
     x: 0,
     y: 0,
     foreground: 0x7,
     background: 0,
-};
+});
 
 const WIDTH: u16 = 80;
 const HEIGHT: u16 = 25;

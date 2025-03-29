@@ -4,7 +4,7 @@
 use crate::drivers::pic::PICS;
 use crate::multitasking::task::CPUState;
 use crate::multitasking::task::TASK_MANAGER;
-use core::arch::asm;
+use core::arch::{naked_asm};
 
 use crate::memory::paging::PAGING;
 use crate::memory::paging::TABLES;
@@ -18,7 +18,7 @@ const APP_SIZE: u32 = 0x0001_0000;
 #[naked]
 pub extern "C" fn timer() {
     unsafe {
-        asm!(
+        naked_asm!(
             //disable interrupts
             "cli",
             //save registers
@@ -46,23 +46,22 @@ pub extern "C" fn timer() {
             "sti",
             //return irq
             "iretd",
-            options(noreturn)
         );
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn timer_handler(esp: u32) -> u32 {
     //trigger scheduler and return the esp returned by scheduler
     unsafe {
-        let new_esp: u32 = TASK_MANAGER.schedule(esp as *mut CPUState) as u32;
+        let new_esp: u32 = (*(&raw mut TASK_MANAGER)).schedule(esp as *mut CPUState) as u32;
 
-        let slot = TASK_MANAGER.get_current_slot();
+        let slot = (*(&raw mut TASK_MANAGER)).get_current_slot();
         let target = APP_TARGET + (slot as u32 * APP_SIZE);
 
         //map table 8 (0x02000000) to the address where the executable is loaded
         TABLES[8].set(target);
-        PAGING.set_table(8, &TABLES[8]);
+        (*(&raw mut PAGING)).set_table(8, &TABLES[8]);
 
         PICS.end_interrupt(TIMER_INT);
 

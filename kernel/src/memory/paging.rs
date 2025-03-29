@@ -36,7 +36,7 @@ impl PageDirectory {
         unsafe {
             for i in 0..8 {
                 TABLES[i].set((0x0040_0000 * i) as u32);
-                PAGING.set_table(i, &TABLES[i]);
+                (*(&raw mut PAGING)).set_table(i, &TABLES[i]);
             }
         }
     }

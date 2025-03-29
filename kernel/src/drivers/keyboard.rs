@@ -3,11 +3,10 @@
 
 use crate::drivers::pic::PICS;
 use crate::shell::shell::SHELL;
-use core::arch::asm;
+use crate::libfelix::mutex::Mutex;
+use core::arch::{asm, naked_asm};
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut KEYBOARD: Keyboard = Keyboard { lshift: false };
+pub static mut KEYBOARD: Mutex<Keyboard> = Mutex::new(Keyboard { lshift: false });
 
 pub const KEYBOARD_INT: u8 = 33;
 pub const KEYBAORD_CONTROLLER: u8 = 0x60;
@@ -22,7 +21,7 @@ pub struct Keyboard {
 pub extern "C" fn keyboard() {
     unsafe {
         //push charset to keyboard handler before calling
-        asm!(
+        naked_asm!(
             "push 0x6d6e6276",
             "push 0x63787a6c",
             "push 0x6b6a6867",
@@ -35,13 +34,12 @@ pub extern "C" fn keyboard() {
             "call keyboard_handler",
             "add esp, 36",
             "iretd",
-            options(noreturn)
         );
     }
 }
 
 #[allow(improper_ctypes_definitions)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn keyboard_handler(charset: [u8; CHAR_COUNT]) {
     //read scancode from keyboard controller
     let scancode: u8;
@@ -51,30 +49,34 @@ pub extern "C" fn keyboard_handler(charset: [u8; CHAR_COUNT]) {
 
     //notify pics end of interrupt
     PICS.end_interrupt(KEYBOARD_INT);
-
+	
     unsafe {
         match scancode {
             //press left shift
             0x2a => {
-                KEYBOARD.lshift = true;
+				(*(&raw mut KEYBOARD)).acquire_mut().lshift = true;
+				(*(&raw mut KEYBOARD)).free();
                 return;
             }
 
             //release left shift
             0xaa => {
-                KEYBOARD.lshift = false;
+				(*(&raw mut KEYBOARD)).acquire_mut().lshift = false;
+				(*(&raw mut KEYBOARD)).free();
                 return;
             }
 
             //backspace
             0x0e => {
-                SHELL.backspace();
+                 (*(&raw mut SHELL)).acquire_mut().backspace();
+				 (*(&raw mut SHELL)).free();
                 return;
             }
 
             //enter
             0x1c => {
-                SHELL.enter();
+                 (*(&raw mut SHELL)).acquire_mut().enter();
+				 (*(&raw mut SHELL)).free();
                 return;
             }
 
@@ -87,8 +89,9 @@ pub extern "C" fn keyboard_handler(charset: [u8; CHAR_COUNT]) {
 
     if key != '\0' {
         unsafe {
-            SHELL.add(key);
-        }
+             (*(&raw mut SHELL)).acquire_mut().add(key);
+			 (*(&raw mut SHELL)).free();
+		}
     }
 }
 
@@ -110,9 +113,11 @@ fn scancode_to_char(scancode: u8, charset: [u8; CHAR_COUNT]) -> char {
         key = charset[index] as char;
 
         unsafe {
-            if KEYBOARD.lshift {
+			let keyboard = (*(&raw mut KEYBOARD)).acquire();
+            if keyboard.lshift {
                 key = key.to_ascii_uppercase();
             }
+			(*(&raw mut KEYBOARD)).free();
         }
     }
 

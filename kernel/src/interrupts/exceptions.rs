@@ -1,9 +1,8 @@
-use core::arch::asm;
-
+use core::arch::{naked_asm};
 //CPU EXCEPTIONS HANDLERS
 
 //handle excpetion based on interrupt number
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn exception_handler(int: u32, eip: u32, cs: u32, eflags: u32) {
     match int {
         0x00 => {
@@ -36,12 +35,11 @@ pub extern "C" fn exception_handler(int: u32, eip: u32, cs: u32, eflags: u32) {
 #[naked]
 pub extern "C" fn div_error() {
     unsafe {
-        asm!(
+        naked_asm!(
             "push 0x00",
             "call exception_handler",
             "add esp, 4",
             "iretd",
-            options(noreturn)
         );
     }
 }
@@ -49,12 +47,11 @@ pub extern "C" fn div_error() {
 #[naked]
 pub extern "C" fn invalid_opcode() {
     unsafe {
-        asm!(
+        naked_asm!(
             "push 0x06",
             "call exception_handler",
             "add esp, 4",
             "iretd",
-            options(noreturn)
         );
     }
 }
@@ -62,12 +59,11 @@ pub extern "C" fn invalid_opcode() {
 #[naked]
 pub extern "C" fn double_fault() {
     unsafe {
-        asm!(
+        naked_asm!(
             "push 0x08",
             "call exception_handler",
             "add esp, 4",
             "iretd",
-            options(noreturn)
         );
     }
 }
@@ -75,12 +71,11 @@ pub extern "C" fn double_fault() {
 #[naked]
 pub extern "C" fn general_protection_fault() {
     unsafe {
-        asm!(
+        naked_asm!(
             "push 0x0d",
             "call exception_handler",
             "add esp, 4",
             "iretd",
-            options(noreturn)
         );
     }
 }
@@ -88,12 +83,11 @@ pub extern "C" fn general_protection_fault() {
 #[naked]
 pub extern "C" fn page_fault() {
     unsafe {
-        asm!(
+        naked_asm!(
             "push 0x0e",
             "call exception_handler",
             "add esp, 4",
             "iretd",
-            options(noreturn)
         );
     }
 }
@@ -101,12 +95,11 @@ pub extern "C" fn page_fault() {
 #[naked]
 pub extern "C" fn generic_handler() {
     unsafe {
-        asm!(
+        naked_asm!(
             "push 0xff",
             "call exception_handler",
             "add esp, 4",
             "iretd",
-            options(noreturn)
         );
     }
 }

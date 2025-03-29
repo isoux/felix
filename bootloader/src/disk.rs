@@ -4,10 +4,9 @@
 
 use core::arch::asm;
 use core::mem;
+use libfelix::mutex::Mutex;
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut DISK: Disk = Disk { lba: 0, buffer: 0 };
+pub static mut DISK: Mutex<Disk> = Mutex::new(Disk { lba: 0, buffer: 0 });
 
 const SECTOR_SIZE: u64 = 512;
 

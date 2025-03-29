@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 #![feature(naked_functions)]
-#![feature(pointer_byte_offsets)]
 
 extern crate alloc;
 
@@ -41,60 +40,67 @@ const STACK_START: u32 = KERNEL_START + KERNEL_SIZE + STACK_SIZE;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 //KERNEL ENTRY POINT
-#[no_mangle]
-#[link_section = ".start"]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".start")]
 pub extern "C" fn _start() -> ! {
     unsafe {
         //setup stack
         asm!("mov esp, {}", in(reg) STACK_START);
 
         //setup paging
-        PAGING.identity();
-        PAGING.enable();
+		(*(&raw mut PAGING)).identity();
+        (*(&raw mut PAGING)).enable();
 
         //bochs magic breakpoint
         asm!("xchg bx, bx");
 
         //setup idt
-        IDT.init(); //init idt  
-        IDT.add_exceptions(); //add CPU exceptions to idt 
-        IDT.add(
+		let idt = (*(&raw mut IDT)).acquire_mut();
+        idt.init(); //init idt  
+        idt.add_exceptions(); //add CPU exceptions to idt 
+        idt.add(
             interrupts::timer::TIMER_INT as usize,
             interrupts::timer::timer as u32,
         ); //add timer interrupt to idt     
-        IDT.add(
+        idt.add(
             syscalls::handler::SYSCALL_INT as usize,
             syscalls::handler::syscall as u32,
         ); //add system call handler interrupt     
-        IDT.add(
+        idt.add(
             drivers::keyboard::KEYBOARD_INT as usize,
             drivers::keyboard::keyboard as u32,
         ); //add keyboard interrupt to idt   
-        IDT.load(); //load idt
+        idt.load(); //load idt
+		(*(&raw mut FAT)).free();
 
         //init programmable interrupt controllers
         PICS.init();
 
         //enable ata disk if present
-        DISK.check();
-
+		let disk = (*(&raw mut DISK)).acquire_mut();
+		disk.check();
+		(*(&raw mut DISK)).free();
+		
         //init filesystem
-        if DISK.enabled {
-            let fat = FAT.acquire_mut();
+        if disk.enabled {
+			//let mutable_reference = (*(&raw mut GLOBAL)).assume_init_mut();
+            let fat =  (*(&raw mut FAT)).acquire_mut();
             fat.load_header();
             fat.load_table();
             fat.load_entries();
-            FAT.free();
+            (*(&raw mut FAT)).free();
         }
 
         //print name, version and copyright
         print_info();
 
         //init felix shell
-        SHELL.init();
+		let shell_mutex = (*(&raw mut SHELL)).acquire_mut();
+		shell_mutex.init();
+		(*(&raw mut SHELL)).free();
 
         //init multitasking
-        TASK_MANAGER.init();
+        (*(&raw mut TASK_MANAGER)).init();
 
         //bochs magic breakpoint
         asm!("xchg bx, bx");
@@ -115,7 +121,8 @@ fn panic(info: &PanicInfo) -> ! {
 
 fn print_info() {
     unsafe {
-        PRINTER.set_colors(0xf, 0);
+		(*(&raw mut PRINTER)).acquire_mut().set_colors(0xf, 0);
+		(*(&raw mut PRINTER)).free();
     }
 
     libfelix::println!();
@@ -126,6 +133,7 @@ fn print_info() {
     libfelix::println!();
 
     unsafe {
-        PRINTER.reset_colors();
+		(*(&raw mut PRINTER)).acquire_mut().reset_colors();
+		(*(&raw mut PRINTER)).free();
     }
 }

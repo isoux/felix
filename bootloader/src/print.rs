@@ -4,10 +4,9 @@
 
 use core::arch::asm;
 use core::fmt;
+use libfelix::mutex::Mutex;
 
-//Warning! Mutable static here
-//TODO: Implement a mutex to get safe access to this
-pub static mut PRINTER: Printer = Printer {};
+pub static mut PRINTER: Mutex<Printer> = Mutex::new(Printer {});
 
 pub struct Printer {}
 
@@ -80,14 +79,18 @@ macro_rules! println {
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
     unsafe {
-        PRINTER.write_fmt(args).unwrap();
+		let printer = (*(&raw mut PRINTER)).acquire_mut();
+        printer.write_fmt(args).unwrap();
+		(*(&raw mut PRINTER)).free();
     }
 }
 
 #[allow(dead_code)]
 pub fn _clear() {
     unsafe {
-        PRINTER.clear();
+		let printer = (*(&raw mut PRINTER)).acquire_mut();
+        printer.clear();
+		(*(&raw mut PRINTER)).free();
     }
 }
 

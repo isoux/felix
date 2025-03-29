@@ -29,8 +29,8 @@ fn panic(info: &PanicInfo) -> ! {
 }
 
 //bootloader entry point
-#[no_mangle]
-#[link_section = ".start"]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".start")]
 pub extern "C" fn _start() -> ! {
     //uncomment to enable splashscreen
     //clear!();
@@ -46,8 +46,13 @@ pub extern "C" fn _start() -> ! {
     print!("[!] Loading kernel");
 
     unsafe {
-        DISK.init(KERNEL_LBA, KERNEL_BUFFER);
-        DISK.read_sectors(KERNEL_SIZE, KERNEL_TARGET);
+		let disk = (*(&raw mut DISK)).acquire_mut();
+		
+       	disk.init(KERNEL_LBA, KERNEL_BUFFER);
+		(*(&raw mut DISK)).free();
+		
+        disk.read_sectors(KERNEL_SIZE, KERNEL_TARGET);
+		(*(&raw mut DISK)).free();
     }
 
     println!("[!] Kernel loaded to memory.");
@@ -65,7 +70,7 @@ pub extern "C" fn _start() -> ! {
     loop {}
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn fail() -> ! {
     println!("[!] Read fail!");
 
