@@ -34,9 +34,10 @@ impl PageDirectory {
     //indentity page first 32MiB
     pub fn identity(&mut self) {
         unsafe {
+			let paging = &mut (*(&raw mut PAGING));
             for i in 0..8 {
                 TABLES[i].set((0x0040_0000 * i) as u32);
-                (*(&raw mut PAGING)).set_table(i, &TABLES[i]);
+                paging.set_table(i, &TABLES[i]);
             }
         }
     }

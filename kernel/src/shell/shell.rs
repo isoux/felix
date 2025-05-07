@@ -43,12 +43,14 @@ impl Shell {
         self.cursor = 0;
 
         unsafe {
-            (*(&raw mut PRINTER)).acquire_mut().set_colors(0xc, 0);
-			(*(&raw mut PRINTER)).free();
+			let printer = &mut (*(&raw mut PRINTER));
+			printer.acquire_mut().set_colors(0xc, 0);
+			printer.free();
+
             libfelix::print!("{}", PROMPT);
 
-			(*(&raw mut PRINTER)).acquire_mut().reset_colors();
-			(*(&raw mut PRINTER)).free();
+			printer.acquire_mut().reset_colors();
+			printer.free();
         }
     }
 
@@ -67,8 +69,9 @@ impl Shell {
             self.cursor -= 1;
 
             unsafe {
-                (*(&raw mut PRINTER)).acquire_mut().delete();
-				(*(&raw mut PRINTER)).free();
+				let printer = &mut (*(&raw mut PRINTER));
+                printer.acquire_mut().delete();
+				printer.free();
             }
         }
     }
@@ -79,8 +82,9 @@ impl Shell {
         unsafe {
             asm!("out dx, al", in("dx") 0xe9 as u16, in("al") '\n' as u8);
 
-			(*(&raw mut PRINTER)).acquire_mut().new_line();
-			(*(&raw mut PRINTER)).free();
+			let printer = &mut (*(&raw mut PRINTER));
+			printer.acquire_mut().new_line();
+			printer.free();
         }
 
         self.interpret();
@@ -98,8 +102,10 @@ impl Shell {
 
             //list root directory
             _b if self.is_command("ls") => unsafe {
-                (*(&raw mut FAT)).acquire().list_entries();
-                (*(&raw mut FAT)).free();
+				let fat = &mut (*(&raw mut FAT));
+				fat.acquire_mut().list_entries();
+				fat.free();
+
             },
 
             //list running tasks
