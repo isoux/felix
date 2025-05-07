@@ -11,18 +11,16 @@ use core::str;
 pub const SYSCALL_INT: u8 = 0x80;
 
 //SYSCALL IRQ, calls local function using cdecl calling convention
-#[naked]
+#[unsafe(naked)]
 pub extern "C" fn syscall() {
-    unsafe {
-        naked_asm!(
-            "push eax",
-            "push ebx",
-            "push ecx",
-            "call syscall_handler",
-            "add esp, 12",
-            "iretd",
-        );
-    }
+    naked_asm!(
+        "push eax",
+        "push ebx",
+        "push ecx",
+        "call syscall_handler",
+        "add esp, 12",
+        "iretd",
+    );
 }
 
 //handle syscalls, get syscall number from eax register
