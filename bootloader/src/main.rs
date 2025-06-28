@@ -46,15 +46,14 @@ pub extern "C" fn _start() -> ! {
     print!("[!] Loading kernel");
 
     unsafe {
-		let disk = (*(&raw mut DISK)).acquire_mut();
-		
-       	disk.init(KERNEL_LBA, KERNEL_BUFFER);
+		 
+        (*(&raw mut DISK)).acquire_mut().init(KERNEL_LBA, KERNEL_BUFFER);
 		(*(&raw mut DISK)).free();
 		
-        disk.read_sectors(KERNEL_SIZE, KERNEL_TARGET);
+        (*(&raw mut DISK)).acquire_mut().read_sectors(KERNEL_SIZE, KERNEL_TARGET);
 		(*(&raw mut DISK)).free();
     }
-
+   
     println!("[!] Kernel loaded to memory.");
 
     //load dgt
